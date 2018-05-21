@@ -1,0 +1,99 @@
+version: '2'
+
+services:
+
+### Applications Code Container #############################
+
+    applications:
+      image: tianon/true
+      volumes:
+        - ${APPLICATION}:/var/www
+
+### Workspace Utilities Container ###########################
+    workspace:
+      build:
+        context: ./workspace
+        args:
+          - PUID=1000
+          - PGID=1000
+        dockerfile: "Dockerfile"
+      volumes_from:
+        - applications
+      expose:
+        - "4200"
+      extra_hosts:
+        - "dockerhost:${DOCKER_HOST_IP}"
+      ports:
+        - "22:22"
+        - "4200:4200"
+      tty: true
+      networks:
+        - frontend
+        - backend
+
+### PHP-FPM Container #######################################
+    jboss:
+      build: ./jboss
+      container_name: "jboss"
+      ports:
+        - "8080:8080"
+        - "9990:9990"
+      volumes:
+        - "../data/deployments:/opt/jboss/wildfly/standalone/deployments"
+    php:
+      build:
+        context: php
+        dockerfile: "Dockerfile"
+      volumes_from:
+        - applications
+      volumes:
+        - ./php/php.ini:/usr/local/etc/php/php.ini
+        - ./data/php/log/php-errors.log:/var/log/php-errors.log
+      expose:
+        - "9000"
+        - "4200"
+      depends_on:
+        - workspace
+      extra_hosts:
+        - "dockerhost:${DOCKER_HOST_IP}"
+      environment:
+        - XDEBUG_CONFIG= "remotehost=10.0.75.1"
+      networks:
+        - backend
+        - frontend
+
+### Apache Server Container #################################
+
+    apache:
+      build:
+        context: ./apache
+        args:
+          - PHP_SOCKET=php:9000
+      volumes_from:
+        - applications
+      volumes:
+        - ./data/apache/logs:/var/log/apache2
+        - ./data/apache/sites:/etc/apache2/sites-available
+      ports:
+        - "80:80"
+      depends_on:
+        - php
+      links:
+        - "php"
+      networks:
+        - frontend
+        - backend
+
+### Networks Setup ############################################
+
+networks:
+  frontend:
+    driver: "bridge"
+  backend:
+    driver: "bridge"
+
+### Volumes Setup #############################################
+
+#volumes:
+#  mysql:
+#    driver: "local"
