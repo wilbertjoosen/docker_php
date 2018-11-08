@@ -50,6 +50,9 @@ COPY ./xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini
 #adiciona configurações customizadas
 ADD ./custom-settings.ini /usr/local/etc/php/conf.d
 
+#adiciona o includepath
+ADD ./include_path.ini /usr/local/etc/php/conf.d
+
 RUN usermod -u 1000 www-data
 
 WORKDIR /var/www
